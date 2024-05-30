@@ -1,23 +1,22 @@
+
 // Importing necessary libraries
 const config = require('dotenv').config();
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const dns = require('dns');
-const mongoose = require('mongoose');
-
-const dns = require('dns');
 const mongoose = require('mongoose');
 
 // Basic Configurations
 // Assign port if not set in env
 const port = process.env.PORT || 3000;
-
-app.use(cors())
-app.use(express.static('public'))
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/views/index.html')
+// Middleware handle url encoded data
+app.use(bodyParser.urlencoded({extended: false}))
+// Corse settings activate
+app.use(cors());
+// Set app port listner
+app.listen(port, function() {
+  console.log(`Listening on port ${port}`);
 });
 
 // Wait for Mongo database to connect, logging an error if there is a problem
@@ -26,9 +25,11 @@ dbmain().catch((err) => {
   process.exit(1);
 });
 
-
-
-
-const listener = app.listen(port || 3000, () => {
-  console.log('Your app is listening on port ' + listener.address().port)
-})
+async function dbmain() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+    console.log('Connected to the database');
+  } catch (err) { 
+    throw new Error('Failed to connect to the database: ' + err.message);
+  }
+}
