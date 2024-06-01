@@ -1,88 +1,93 @@
-
 // Importing necessary libraries
-const config = require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
-const app = express();
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
+const app = express();
+
 // Basic Configurations
-// Assign port if not set in env
 const port = process.env.PORT || 3000;
-// Middleware handle url encoded data
-app.use(bodyParser.urlencoded({extended: false}))
-// Corse settings activate
+
+// Middleware
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors());
-// Set app port listner
-app.listen(port, function() {
+
+// Connect to MongoDB
+async function connectToDatabase() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('Connected to the database');
+  } catch (err) {
+    console.error('Database connection error:', err);
+    process.exit(1);
+  }
+}
+connectToDatabase();
+
+// Start the server
+app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
 
-// Wait for Mongo database to connect, logging an error if there is a problem
-dbmain().catch((err) => {
-  console.error('Database connection error:', err);
-  process.exit(1);
-});
-
-// First routes
+// Serve static files
 app.use('/public', express.static(`${process.cwd()}/public`));
-app.get('/', function(req, res) {
+app.get('/', (req, res) => {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// Exercise Schema
+// Exercise Schema and Model
 const exerciseSchema = new mongoose.Schema({
-  username: String,
-  count: Number,
-  log: [{
-    description: { type: String, required: true },
-  duration: { type: Number, required: true },
-  date: { type: Date, default: Date.now }
-  }]
+  username: { type: String, required: true },
+  count: { type: Number, default: 0 },
+  log: [
+    {
+      description: { type: String, required: true },
+      duration: { type: Number, required: true },
+      date: { type: Date, default: Date.now },
+    },
+  ],
 });
 
-// Create Model of Exercise Schema and asign to variable
-let Exercise = mongoose.model('Excersize', exerciseSchema);
+const Exercise = mongoose.model('Exercise', exerciseSchema);
 
 // Function to create a new user
-const createAndSavePerson = async (name) => {
+const createAndSaveUser = async (username) => {
   try {
-    let exerciseSchema = new Exercise({
-      username: name
-    });
-    await exerciseSchema.save();
-    // return user and id
+    const newUser = new Exercise({ username });
+    return await newUser.save();
   } catch (err) {
-    console.log(err);
+    throw new Error('Error creating user: ' + err.message);
   }
 };
 
 // Get User from database by name
-const getUser = async (name) => {
+const getUserByUsername = async (username) => {
   try {
-    const query = Exercise.find({ username: name });
-    return await query.exec();
+    return await Exercise.findOne({ username });
   } catch (err) {
-    console.log(err);
+    throw new Error('Error fetching user: ' + err.message);
   }
-}
+};
 
-// Save Users to the database and return the saved user to the screen
-app.post('/api/users', async function(req, res) {
+// Create a new user endpoint
+app.post('/api/users', async (req, res) => {
   try {
     const username = req.body.username;
-    await createAndSavePerson(username);
-    let savedUser = await getUser(username);
-    res.send(savedUser);
+    const newUser = await createAndSaveUser(username);
+    res.json(newUser);
   } catch (err) {
     console.error(err);
     res.status(500).send('An error occurred while creating the user');
-}});
+  }
+});
 
-// Save Exercise to the database if a User enty exist
-app.post('/api/users/:_id/exercises', async function(req, res) {
-
+// Save Exercise to the database if a User entry exists
+app.post('/api/users/:_id/exercises', async (req, res) => {
   try {
     const userId = req.params._id;
     const { description, duration, date } = req.body;
@@ -93,21 +98,22 @@ app.post('/api/users/:_id/exercises', async function(req, res) {
     }
 
     // Check if the user exists
-    const user = await User.findById(userId);  
+    const user = await Exercise.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
 
     // Create the exercise
-    const exercise = new Exercise({
-      userId: userId,
-      description: description,
-      duration: duration,
-      date: date ? new Date(date) : new Date()
-    });
+    const exercise = {
+      description,
+      duration,
+      date: date ? new Date(date) : new Date(),
+    };
 
-    // Save the exercise to the database
-    await exercise.save();
+    // Update user log
+    user.log.push(exercise);
+    user.count = user.log.length;
+    await user.save();
 
     // Return the response
     res.status(201).json({
@@ -115,20 +121,10 @@ app.post('/api/users/:_id/exercises', async function(req, res) {
       description: exercise.description,
       duration: exercise.duration,
       date: exercise.date.toDateString(),
-      _id: user._id
+      _id: user._id,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'An error occurred while saving the exercise.' });
   }
-})
-
-
-// general functions
-async function dbmain() {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-    console.log('Connected to the database');
-  } catch (err) { 
-    throw new Error('Failed to connect to the database: ' + err.message);
-  }
-}
+});
