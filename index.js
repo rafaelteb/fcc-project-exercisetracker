@@ -31,25 +31,27 @@ app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-
-// User Schema
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  } // note: _id field is created automatically  
+// Exercise Schema
+const exerciseSchema = new mongoose.Schema({
+  username: String,
+  count: Number,
+  log: [{
+    description: { type: String, required: true },
+  duration: { type: Number, required: true },
+  date: { type: Date, default: Date.now }
+  }]
 });
 
-// Create Model of User Schema and asign to variable
-let User = mongoose.model('User', userSchema);
+// Create Model of Exercise Schema and asign to variable
+let Exercise = mongoose.model('Excersize', exerciseSchema);
 
 // Function to create a new user
 const createAndSavePerson = async (name) => {
   try {
-    let userInstance = new User({
-      name: name
+    let exerciseSchema = new Exercise({
+      username: name
     });
-    await userInstance.save();
+    await exerciseSchema.save();
     // return user and id
   } catch (err) {
     console.log(err);
@@ -59,7 +61,7 @@ const createAndSavePerson = async (name) => {
 // Get User from database by name
 const getUser = async (name) => {
   try {
-    const query = User.find({ name: name });
+    const query = Exercise.find({ username: name });
     return await query.exec();
   } catch (err) {
     console.log(err);
@@ -77,6 +79,48 @@ app.post('/api/users', async function(req, res) {
     console.error(err);
     res.status(500).send('An error occurred while creating the user');
 }});
+
+// Save Exercise to the database if a User enty exist
+app.post('/api/users/:_id/exercises', async function(req, res) {
+
+  try {
+    const userId = req.params._id;
+    const { description, duration, date } = req.body;
+
+    // Validate user input
+    if (!description || !duration) {
+      return res.status(400).json({ error: 'Description and duration are required.' });
+    }
+
+    // Check if the user exists
+    const user = await User.findById(userId);  
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Create the exercise
+    const exercise = new Exercise({
+      userId: userId,
+      description: description,
+      duration: duration,
+      date: date ? new Date(date) : new Date()
+    });
+
+    // Save the exercise to the database
+    await exercise.save();
+
+    // Return the response
+    res.status(201).json({
+      username: user.username,
+      description: exercise.description,
+      duration: exercise.duration,
+      date: exercise.date.toDateString(),
+      _id: user._id
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'An error occurred while saving the exercise.' });
+  }
+})
 
 
 // general functions
