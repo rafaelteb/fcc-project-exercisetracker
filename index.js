@@ -106,7 +106,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     // Create the exercise
     const exercise = {
       description,
-      duration,
+      duration: parseInt(duration),
       date: date ? new Date(date) : new Date(),
     };
 
