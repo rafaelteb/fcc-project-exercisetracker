@@ -13,6 +13,9 @@
 		"mongodb": "^6.7.0",
 		"mongoose": "^8.4.0"
 	},
+		"engines": {
+		"node": "16.x"
+	},
 	"repository": {
 		"url": "https://github.com/freeCodeCamp/boilerplate-project-exercisetracker"
 	},
