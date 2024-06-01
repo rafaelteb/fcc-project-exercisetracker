@@ -128,3 +128,56 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     res.status(500).json({ error: 'An error occurred while saving the exercise.' });
   }
 });
+
+// Get exercise logs
+app.get('/api/users/:_id/logs', async (req, res) => {
+  try {
+    const userId = req.params._id;
+    const { from, to, limit } = req.query;
+    
+    // Find the user
+    const user = await Exercise.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Parse query parameters
+    let fromDate = from ? new Date(from) : new Date(0); // Default to epoch start if 'from' is not provided
+    let toDate = to ? new Date(to) : new Date(); // Default to current date if 'to' is not provided
+    let logLimit = limit ? parseInt(limit) : null;
+
+    // Validate date parsing
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid date format.' });
+    }
+
+    // Filter logs by date range
+    let filteredLogs = user.log.filter(log => {
+      let logDate = new Date(log.date);
+      return logDate >= fromDate && logDate <= toDate;
+    });
+
+    // Apply limit if specified
+    if (logLimit) {
+      filteredLogs = filteredLogs.slice(0, logLimit);
+    }
+
+    // Format the response
+    const response = {
+      username: user.username,
+      count: filteredLogs.length,
+      _id: user._id,
+      log: filteredLogs.map(log => ({
+        description: log.description,
+        duration: log.duration,
+        date: log.date.toDateString()
+      }))
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error(err);
+    res.status(500).send('An error occurred while getting the logs');
+  }  
+})
