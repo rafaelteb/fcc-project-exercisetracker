@@ -129,6 +129,21 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
   }
 });
 
+// get all users
+app.get('/api/users', async (req, res) => {
+    try {
+      const allUsers = await Exercise.find({}, {username: 1, _id: 1} );
+      
+      if (!allUsers) {
+        return res.status(404).json({ error: 'No Users found.' });
+      }
+      return res.json(allUsers);
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('An error occurred while getting the list of all users');
+    }
+})
+
 // Get exercise logs
 app.get('/api/users/:_id/logs', async (req, res) => {
   try {
